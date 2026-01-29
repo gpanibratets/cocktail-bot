@@ -30,10 +30,6 @@ class Config:
     # Настройки кеширования
     CACHE_TTL: int = 300  # 5 минут
 
-    # Google Cloud Translation API (опционально)
-    GOOGLE_TRANSLATE_API_KEY: str = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
-    TRANSLATION_TARGET_LANG: str = os.getenv("TRANSLATION_TARGET_LANG", "ru")
-
     @classmethod
     def validate(cls) -> bool:
         """Проверка наличия обязательных переменных окружения."""

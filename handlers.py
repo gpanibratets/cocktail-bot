@@ -11,8 +11,6 @@ from telegram.constants import ParseMode
 
 from api_client import api_client, Cocktail
 from analytics import analytics
-from config import Config
-from translation import translate_text
 
 logger = logging.getLogger(__name__)
 
@@ -28,19 +26,7 @@ async def send_cocktail(
     reply_markup: Optional[InlineKeyboardMarkup] = None,
 ) -> None:
     """Отправка информации о коктейле пользователю."""
-    # Пытаемся получить переведённый текст инструкций, если нет русского варианта
-    instructions_override: Optional[str] = None
-
-    if (
-        Config.GOOGLE_TRANSLATE_API_KEY
-        and not cocktail.instructions_ru
-        and cocktail.instructions
-    ):
-        translated = await translate_text(cocktail.instructions)
-        if translated:
-            instructions_override = translated
-
-    message = cocktail.to_message(override_instructions=instructions_override)
+    message = cocktail.to_message()
 
     # Создаём клавиатуру с кнопкой "Ещё коктейль"
     if reply_markup is None:
