@@ -12,7 +12,6 @@ from telegram.constants import ParseMode
 from api_client import api_client, Cocktail
 from analytics import analytics
 from config import Config
-from translation import translate_text
 from llm_client import llm_client
 
 logger = logging.getLogger(__name__)
