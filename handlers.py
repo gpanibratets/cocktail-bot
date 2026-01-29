@@ -79,7 +79,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "🎲 /random — случайный коктейль\n"
         "🔍 /search \\[название\\] — поиск по названию\n"
         "🧪 /ingredient \\[ингредиент\\] — поиск по ингредиенту\n"
-        "🍷 /toast toxic \\[повод\\] — токсичный тост\n"
+        "🍷 /toast\\_toxic \\[повод\\] — токсичный тост\n"
         "❓ /help — справка\n\n"
         "Попробуйте нажать /random для начала!"
     )
@@ -113,9 +113,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🧪 /ingredient \\[ингредиент\\]\n"
         "Найти коктейли с определённым ингредиентом.\n"
         "_Пример:_ `/ingredient vodka`\n\n"
-        "🍷 /toast toxic \\[повод\\]\n"
+        "🍷 /toast\\_toxic \\[повод\\]\n"
         "Сгенерировать токсичный тост для повода.\n"
-        "_Пример:_ `/toast toxic пятница`\n\n"
+        "_Пример:_ `/toast_toxic пятница`\n\n"
         "📊 *О боте:*\n"
         "Бот использует базу данных TheCocktailDB с тысячами рецептов коктейлей.\n\n"
         "💡 *Совет:* Используйте английские названия для лучшего поиска!"
@@ -306,24 +306,24 @@ async def ingredient_command(
 
 
 async def toast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработчик команды /toast."""
+    """Обработчик команды /toast_toxic."""
     user = update.effective_user
     user_id = user.id
 
-    # Проверяем аргументы: /toast toxic <повод>
-    if not context.args or len(context.args) < 2 or context.args[0].lower() != "toxic":
+    # Проверяем аргументы: /toast_toxic <повод>
+    if not context.args:
         await update.message.reply_text(
-            "🍷 *Команда Toast*\n\n"
-            "Использование: `/toast toxic <повод>`\n\n"
+            "🍷 *Токсичный тост*\n\n"
+            "Использование: `/toast_toxic <повод>`\n\n"
             "_Примеры:_\n"
-            "`/toast toxic работа`\n"
-            "`/toast toxic пятница`\n"
-            "`/toast toxic день программиста`",
+            "`/toast_toxic работа`\n"
+            "`/toast_toxic пятница`\n"
+            "`/toast_toxic день программиста`",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
-    reason = " ".join(context.args[1:])
+    reason = " ".join(context.args)
     logger.info(f"User {user_id} requested toxic toast for: {reason}")
 
     analytics.log_event(
