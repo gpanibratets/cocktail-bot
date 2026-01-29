@@ -47,24 +47,16 @@ class Cocktail:
             return "🥤"
         return "🍹"
 
-    def to_message(self, override_instructions: Optional[str] = None) -> str:
-        """
-        Форматирование коктейля для отправки в Telegram.
-
-        :param override_instructions: если передано, используется как текст
-            инструкции вместо оригинального значения/перевода из API.
-        """
+    def to_message(self) -> str:
+        """Форматирование коктейля для отправки в Telegram."""
         alcoholic_ru = {
             "Alcoholic": "Алкогольный",
             "Non alcoholic": "Безалкогольный",
             "Optional alcohol": "Опционально алкогольный",
         }.get(self.alcoholic, self.alcoholic)
 
-        # Используем (в приоритете):
-        # 1. переданный override_instructions (например, перевод Google),
-        # 2. русские инструкции из API, если есть,
-        # 3. оригинальные инструкции.
-        instructions = override_instructions or self.instructions_ru or self.instructions
+        # Используем русские инструкции, если есть
+        instructions = self.instructions_ru or self.instructions
 
         message = (
             f"{self.get_alcoholic_emoji()} *{self.name}*\n\n"
