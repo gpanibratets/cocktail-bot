@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
 from api_client import api_client, Cocktail
+from analytics import analytics
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,13 @@ async def send_cocktail(
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /start."""
-    logger.info(f"User {update.effective_user.id} started the bot")
+    user = update.effective_user
+    logger.info(f"User {user.id} started the bot")
+    analytics.log_event(
+        user_id=user.id,
+        username=user.username,
+        event_type="command_start",
+    )
 
     welcome_message = (
         "🍹 *Добро пожаловать в Cocktail Bot!*\n\n"
@@ -84,7 +91,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /help."""
-    logger.info(f"User {update.effective_user.id} requested help")
+    user = update.effective_user
+    logger.info(f"User {user.id} requested help")
+    analytics.log_event(
+        user_id=user.id,
+        username=user.username,
+        event_type="command_help",
+    )
 
     help_message = (
         "🍹 *Cocktail Bot — Справка*\n\n"
@@ -107,8 +120,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /random."""
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
     logger.info(f"User {user_id} requested random cocktail")
+    analytics.log_event(
+        user_id=user_id,
+        username=user.username,
+        event_type="command_random",
+    )
 
     # Отправляем сообщение о загрузке
     loading_message = await update.message.reply_text("🔄 Ищу для вас коктейль...")
@@ -137,7 +156,8 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /search."""
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
 
     if not context.args:
         await update.message.reply_text(
@@ -150,6 +170,13 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     query = " ".join(context.args)
     logger.info(f"User {user_id} searching for: {query}")
+
+    analytics.log_event(
+        user_id=user_id,
+        username=user.username,
+        event_type="command_search",
+        payload={"query": query},
+    )
 
     loading_message = await update.message.reply_text(f"🔍 Ищу коктейли по запросу «{query}»...")
 
@@ -202,7 +229,8 @@ async def ingredient_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Обработчик команды /ingredient."""
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
 
     if not context.args:
         await update.message.reply_text(
@@ -215,6 +243,13 @@ async def ingredient_command(
 
     ingredient = " ".join(context.args)
     logger.info(f"User {user_id} searching by ingredient: {ingredient}")
+
+    analytics.log_event(
+        user_id=user_id,
+        username=user.username,
+        event_type="command_ingredient",
+        payload={"ingredient": ingredient},
+    )
 
     loading_message = await update.message.reply_text(
         f"🧪 Ищу коктейли с ингредиентом «{ingredient}»..."
@@ -270,12 +305,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
 
     data = query.data
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
 
     logger.info(f"User {user_id} pressed button: {data}")
 
     if data == CALLBACK_RANDOM:
         # Запрос случайного коктейля
+        analytics.log_event(
+            user_id=user_id,
+            username=user.username,
+            event_type="button_random",
+        )
         cocktail = await api_client.get_random_cocktail()
 
         if cocktail:
@@ -288,6 +329,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif data.startswith(CALLBACK_COCKTAIL_PREFIX):
         # Запрос конкретного коктейля по ID
         cocktail_id = data[len(CALLBACK_COCKTAIL_PREFIX):]
+        analytics.log_event(
+            user_id=user_id,
+            username=user.username,
+            event_type="button_cocktail",
+            payload={"cocktail_id": cocktail_id},
+        )
         cocktail = await api_client.get_cocktail_by_id(cocktail_id)
 
         if cocktail:
@@ -300,6 +347,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик неизвестных команд."""
+    user = update.effective_user
+    analytics.log_event(
+        user_id=user.id,
+        username=user.username,
+        event_type="unknown_command",
+    )
+
     await update.message.reply_text(
         "🤔 Не понимаю эту команду.\n\n"
         "Используйте /help для списка доступных команд.",
@@ -312,6 +366,17 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Глобальный обработчик ошибок."""
     logger.error(f"Exception while handling an update: {context.error}")
+
+    try:
+        if update and update.effective_user:
+            analytics.log_event(
+                user_id=update.effective_user.id,
+                username=update.effective_user.username,
+                event_type="error",
+                payload={"error": str(context.error)},
+            )
+    except Exception as exc:  # безопасность: не роняем error_handler
+        logger.error(f"Failed to log analytics error event: {exc}")
 
     if update and update.effective_message:
         await update.effective_message.reply_text(
