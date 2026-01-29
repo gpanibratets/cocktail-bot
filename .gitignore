@@ -77,4 +77,6 @@ Thumbs.db
 # Project specific
 bot.log
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3

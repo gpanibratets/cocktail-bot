@@ -30,6 +30,14 @@ class Config:
     # Настройки кеширования
     CACHE_TTL: int = 300  # 5 минут
 
+    # Google Cloud Translation API (опционально)
+    GOOGLE_TRANSLATE_API_KEY: str = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
+    TRANSLATION_TARGET_LANG: str = os.getenv("TRANSLATION_TARGET_LANG", "ru")
+
+    # OpenAI API (для генерации тостов)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
     @classmethod
     def validate(cls) -> bool:
         """Проверка наличия обязательных переменных окружения."""
