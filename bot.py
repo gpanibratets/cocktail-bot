@@ -23,6 +23,7 @@ from handlers import (
     random_command,
     search_command,
     ingredient_command,
+    toast_command,
     button_callback,
     unknown_command,
     error_handler,
@@ -85,6 +86,7 @@ def main() -> None:
     application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("search", search_command))
     application.add_handler(CommandHandler("ingredient", ingredient_command))
+    application.add_handler(CommandHandler("toast", toast_command))
 
     # Обработчик inline-кнопок
     application.add_handler(CallbackQueryHandler(button_callback))

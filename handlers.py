@@ -13,6 +13,7 @@ from api_client import api_client, Cocktail
 from analytics import analytics
 from config import Config
 from translation import translate_text
+from llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "🎲 /random — случайный коктейль\n"
         "🔍 /search \\[название\\] — поиск по названию\n"
         "🧪 /ingredient \\[ингредиент\\] — поиск по ингредиенту\n"
+        "🍷 /toast toxic \\[повод\\] — токсичный тост\n"
         "❓ /help — справка\n\n"
         "Попробуйте нажать /random для начала!"
     )
@@ -124,6 +126,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🧪 /ingredient \\[ингредиент\\]\n"
         "Найти коктейли с определённым ингредиентом.\n"
         "_Пример:_ `/ingredient vodka`\n\n"
+        "🍷 /toast toxic \\[повод\\]\n"
+        "Сгенерировать токсичный тост для повода.\n"
+        "_Пример:_ `/toast toxic пятница`\n\n"
         "📊 *О боте:*\n"
         "Бот использует базу данных TheCocktailDB с тысячами рецептов коктейлей.\n\n"
         "💡 *Совет:* Используйте английские названия для лучшего поиска!"
@@ -310,6 +315,71 @@ async def ingredient_command(
         logger.error(f"Error in ingredient_command: {e}")
         await loading_message.edit_text(
             "❌ Произошла ошибка при поиске. Попробуйте позже."
+        )
+
+
+async def toast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /toast."""
+    user = update.effective_user
+    user_id = user.id
+
+    # Проверяем аргументы: /toast toxic <повод>
+    if not context.args or len(context.args) < 2 or context.args[0].lower() != "toxic":
+        await update.message.reply_text(
+            "🍷 *Команда Toast*\n\n"
+            "Использование: `/toast toxic <повод>`\n\n"
+            "_Примеры:_\n"
+            "`/toast toxic работа`\n"
+            "`/toast toxic пятница`\n"
+            "`/toast toxic день программиста`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    reason = " ".join(context.args[1:])
+    logger.info(f"User {user_id} requested toxic toast for: {reason}")
+
+    analytics.log_event(
+        user_id=user_id,
+        username=user.username,
+        event_type="command_toast_toxic",
+        payload={"reason": reason},
+    )
+
+    # Проверяем наличие API ключа
+    if not Config.OPENAI_API_KEY:
+        await update.message.reply_text(
+            "⚠️ Функция тостов временно недоступна.\n"
+            "Администратору необходимо настроить OPENAI\\_API\\_KEY.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    loading_message = await update.message.reply_text("🍷 Готовлю токсичный тост...")
+
+    try:
+        toast = await llm_client.generate_toxic_toast(reason)
+        await loading_message.delete()
+
+        if toast:
+            await update.message.reply_text(
+                f"🍷 *Тост за «{reason}»*\n\n{toast}",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text(
+                "😔 Не удалось сгенерировать тост. Попробуйте позже."
+            )
+
+    except ValueError as e:
+        logger.error(f"Config error in toast_command: {e}")
+        await loading_message.edit_text(
+            "⚠️ Функция тостов не настроена. Обратитесь к администратору."
+        )
+    except Exception as e:
+        logger.error(f"Error in toast_command: {e}")
+        await loading_message.edit_text(
+            "❌ Произошла ошибка при генерации тоста. Попробуйте позже."
         )
 
 
