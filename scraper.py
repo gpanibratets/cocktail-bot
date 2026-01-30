@@ -44,8 +44,8 @@ DB_PATH = DATA_DIR / "cocktails.db"
 PROGRESS_FILE = DATA_DIR / "scraper_progress.json"
 
 # Rate limiting (секунды между запросами)
-REQUEST_DELAY = 2.0  # 2 секунды между запросами
-IMAGE_DELAY = 1.0    # 1 секунда между скачиванием изображений
+REQUEST_DELAY = 10.0  # 10 секунд между запросами
+IMAGE_DELAY = 10.0    # 10 секунд между скачиванием изображений
 
 
 @dataclass
