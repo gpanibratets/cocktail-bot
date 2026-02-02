@@ -87,19 +87,26 @@ class CocktailDBClient:
         return self._connection
 
     def _get_ingredients(self, cocktail_id: str) -> list[tuple[str, str]]:
-        """Получение ингредиентов коктейля."""
+        """Получение ингредиентов коктейля (на русском языке)."""
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT ingredient, measure
+            SELECT ingredient, ingredient_ru, measure, measure_ru
             FROM cocktail_ingredients
             WHERE cocktail_id = ?
             ORDER BY position
             """,
             (cocktail_id,),
         )
-        return [(row["ingredient"], row["measure"] or "") for row in cursor.fetchall()]
+        # Используем русские переводы, если есть
+        return [
+            (
+                row["ingredient_ru"] or row["ingredient"],
+                row["measure_ru"] or row["measure"] or ""
+            )
+            for row in cursor.fetchall()
+        ]
 
     def _row_to_cocktail(self, row: sqlite3.Row) -> Cocktail:
         """Преобразование строки БД в объект Cocktail."""
