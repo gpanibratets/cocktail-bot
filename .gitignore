@@ -80,3 +80,4 @@ bot.log
 *.db-shm
 *.db-wal
 *.sqlite3
+data/

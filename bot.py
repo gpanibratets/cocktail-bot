@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Telegram-бот для коктейлей.
-Отправляет случайные рецепты коктейлей с изображениями из TheCocktailDB.
+Отправляет рецепты коктейлей с изображениями из локальной базы данных.
 """
 
 import logging
@@ -16,13 +16,12 @@ from telegram.ext import (
 )
 
 from config import Config
-from api_client import api_client
+from db_client import db_client
 from handlers import (
     start_command,
     help_command,
     random_command,
     search_command,
-    ingredient_command,
     toast_command,
     button_callback,
     unknown_command,
@@ -56,7 +55,7 @@ async def post_init(application: Application) -> None:
 async def post_shutdown(application: Application) -> None:
     """Действия при завершении работы бота."""
     logger.info("Shutting down bot...")
-    await api_client.close()
+    db_client.close()
     logger.info("Bot shutdown complete")
 
 
@@ -85,7 +84,6 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("search", search_command))
-    application.add_handler(CommandHandler("ingredient", ingredient_command))
     application.add_handler(CommandHandler("toast_toxic", toast_command))
 
     # Обработчик inline-кнопок

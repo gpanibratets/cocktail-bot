@@ -30,6 +30,9 @@ class Config:
     # Настройки кеширования
     CACHE_TTL: int = 300  # 5 минут
 
+    # Локальная база данных коктейлей
+    DB_PATH: str = os.getenv("DB_PATH", "data/cocktails.db")
+
     # Google Cloud Translation API (опционально)
     GOOGLE_TRANSLATE_API_KEY: str = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
     TRANSLATION_TARGET_LANG: str = os.getenv("TRANSLATION_TARGET_LANG", "ru")

@@ -3,13 +3,14 @@
 """
 
 import logging
+from pathlib import Path
 from typing import Optional
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from api_client import api_client, Cocktail
+from db_client import db_client, Cocktail
 from analytics import analytics
 from config import Config
 from llm_client import llm_client
@@ -18,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 # Константы для callback_data
 CALLBACK_RANDOM = "random"
-CALLBACK_COCKTAIL_PREFIX = "cocktail_"
 
 
 async def send_cocktail(
@@ -38,8 +38,18 @@ async def send_cocktail(
         reply_markup = InlineKeyboardMarkup(keyboard)
 
     try:
-        if cocktail.image_url:
-            # Отправляем фото с описанием
+        # Проверяем наличие локального изображения
+        if cocktail.image_path and Path(cocktail.image_path).exists():
+            # Отправляем локальный файл
+            with open(cocktail.image_path, "rb") as photo_file:
+                await update.effective_message.reply_photo(
+                    photo=InputFile(photo_file),
+                    caption=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
+        elif cocktail.image_url:
+            # Fallback на URL, если локальный файл не найден
             await update.effective_message.reply_photo(
                 photo=cocktail.image_url,
                 caption=message,
@@ -78,7 +88,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "*Доступные команды:*\n"
         "🎲 /random — случайный коктейль\n"
         "🔍 /search \\[название\\] — поиск по названию\n"
-        "🧪 /ingredient \\[ингредиент\\] — поиск по ингредиенту\n"
         "🍷 /toast\\_toxic \\[повод\\] — токсичный тост\n"
         "❓ /help — справка\n\n"
         "Попробуйте нажать /random для начала!"
@@ -110,14 +119,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🔍 /search \\[название\\]\n"
         "Найти коктейль по названию.\n"
         "_Пример:_ `/search margarita`\n\n"
-        "🧪 /ingredient \\[ингредиент\\]\n"
-        "Найти коктейли с определённым ингредиентом.\n"
-        "_Пример:_ `/ingredient vodka`\n\n"
         "🍷 /toast\\_toxic \\[повод\\]\n"
         "Сгенерировать токсичный тост для повода.\n"
         "_Пример:_ `/toast_toxic пятница`\n\n"
         "📊 *О боте:*\n"
-        "Бот использует базу данных TheCocktailDB с тысячами рецептов коктейлей.\n\n"
+        "База данных содержит более 400 рецептов коктейлей.\n\n"
         "💡 *Совет:* Используйте английские названия для лучшего поиска!"
     )
 
@@ -139,7 +145,7 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     loading_message = await update.message.reply_text("🔄 Ищу для вас коктейль...")
 
     try:
-        cocktail = await api_client.get_random_cocktail()
+        cocktail = db_client.get_random_cocktail()
 
         # Удаляем сообщение о загрузке
         await loading_message.delete()
@@ -187,7 +193,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     loading_message = await update.message.reply_text(f"🔍 Ищу коктейли по запросу «{query}»...")
 
     try:
-        cocktails = await api_client.search_by_name(query)
+        cocktails = db_client.search_by_name(query)
         await loading_message.delete()
 
         if not cocktails:
@@ -200,106 +206,11 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             return
 
-        if len(cocktails) == 1:
-            # Если найден только один коктейль, показываем его сразу
-            await send_cocktail(update, context, cocktails[0])
-        else:
-            # Показываем список найденных коктейлей
-            keyboard = []
-            for cocktail in cocktails[:10]:  # Ограничиваем до 10 результатов
-                keyboard.append(
-                    [
-                        InlineKeyboardButton(
-                            f"{cocktail.get_alcoholic_emoji()} {cocktail.name}",
-                            callback_data=f"{CALLBACK_COCKTAIL_PREFIX}{cocktail.id}",
-                        )
-                    ]
-                )
-
-            message = f"🔍 *Найдено коктейлей: {len(cocktails)}*\n\n" "Выберите коктейль:"
-
-            await update.message.reply_text(
-                message,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-            )
+        # Показываем первый найденный коктейль
+        await send_cocktail(update, context, cocktails[0])
 
     except Exception as e:
         logger.error(f"Error in search_command: {e}")
-        await loading_message.edit_text(
-            "❌ Произошла ошибка при поиске. Попробуйте позже."
-        )
-
-
-async def ingredient_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
-    """Обработчик команды /ingredient."""
-    user = update.effective_user
-    user_id = user.id
-
-    if not context.args:
-        await update.message.reply_text(
-            "🧪 *Поиск по ингредиенту*\n\n"
-            "Укажите ингредиент после команды.\n"
-            "_Пример:_ `/ingredient rum`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    ingredient = " ".join(context.args)
-    logger.info(f"User {user_id} searching by ingredient: {ingredient}")
-
-    analytics.log_event(
-        user_id=user_id,
-        username=user.username,
-        event_type="command_ingredient",
-        payload={"ingredient": ingredient},
-    )
-
-    loading_message = await update.message.reply_text(
-        f"🧪 Ищу коктейли с ингредиентом «{ingredient}»..."
-    )
-
-    try:
-        results = await api_client.search_by_ingredient(ingredient)
-        await loading_message.delete()
-
-        if not results:
-            await update.message.reply_text(
-                f"😔 Коктейли с ингредиентом «{ingredient}» не найдены.\n\n"
-                "💡 Попробуйте написать ингредиент на английском.",
-                reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("🎲 Случайный коктейль", callback_data=CALLBACK_RANDOM)]]
-                ),
-            )
-            return
-
-        # Показываем список найденных коктейлей
-        keyboard = []
-        for item in results[:10]:  # Ограничиваем до 10 результатов
-            keyboard.append(
-                [
-                    InlineKeyboardButton(
-                        f"🍹 {item['name']}",
-                        callback_data=f"{CALLBACK_COCKTAIL_PREFIX}{item['id']}",
-                    )
-                ]
-            )
-
-        message = (
-            f"🧪 *Коктейли с «{ingredient}»: {len(results)}*\n\n"
-            "Выберите коктейль для просмотра рецепта:"
-        )
-
-        await update.message.reply_text(
-            message,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-        )
-
-    except Exception as e:
-        logger.error(f"Error in ingredient_command: {e}")
         await loading_message.edit_text(
             "❌ Произошла ошибка при поиске. Попробуйте позже."
         )
@@ -388,31 +299,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             username=user.username,
             event_type="button_random",
         )
-        cocktail = await api_client.get_random_cocktail()
+        cocktail = db_client.get_random_cocktail()
 
         if cocktail:
             await send_cocktail(update, context, cocktail)
         else:
             await query.message.reply_text(
                 "😔 Не удалось получить коктейль. Попробуйте позже."
-            )
-
-    elif data.startswith(CALLBACK_COCKTAIL_PREFIX):
-        # Запрос конкретного коктейля по ID
-        cocktail_id = data[len(CALLBACK_COCKTAIL_PREFIX):]
-        analytics.log_event(
-            user_id=user_id,
-            username=user.username,
-            event_type="button_cocktail",
-            payload={"cocktail_id": cocktail_id},
-        )
-        cocktail = await api_client.get_cocktail_by_id(cocktail_id)
-
-        if cocktail:
-            await send_cocktail(update, context, cocktail)
-        else:
-            await query.message.reply_text(
-                "😔 Не удалось получить информацию о коктейле. Попробуйте позже."
             )
 
 
