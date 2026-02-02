@@ -104,10 +104,12 @@ class CocktailDBClient:
     def _row_to_cocktail(self, row: sqlite3.Row) -> Cocktail:
         """Преобразование строки БД в объект Cocktail."""
         ingredients = self._get_ingredients(row["id"])
+        # Используем русскую категорию, если есть
+        category = row["category_ru"] or row["category"] or "Unknown"
         return Cocktail(
             id=row["id"],
             name=row["name"] or "Unknown",
-            category=row["category"] or "Unknown",
+            category=category,
             alcoholic=row["alcoholic"] or "Unknown",
             glass=row["glass"] or "Unknown",
             instructions=row["instructions"] or "Нет инструкций",
