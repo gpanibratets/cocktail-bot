@@ -154,8 +154,8 @@ def convert_measure(measure: str) -> str:
         return "цедра"
 
     # Конвертируем единицы измерения
-    # Сначала обрабатываем дроби вида "1/2 oz", "3/4 cl"
-    fraction_pattern = rf"(\d+)\s+(\d+)/(\d+)\s*(oz|cl|ml|tsp|tblsp|tbsp)(?!\w)"
+    # Сначала обрабатываем дроби вида "1/2 oz", "3/4 cl", "1 1/4 cup"
+    fraction_pattern = rf"(\d+)\s+(\d+)/(\d+)\s*(oz|cl|ml|cup|tsp|tblsp|tbsp)(?!\w)"
 
     def replace_mixed_fraction(m):
         whole = int(m.group(1))
@@ -173,8 +173,8 @@ def convert_measure(measure: str) -> str:
 
     result = re.sub(fraction_pattern, replace_mixed_fraction, result, flags=re.IGNORECASE)
 
-    # Обрабатываем простые дроби "1/2 oz"
-    simple_frac_pattern = rf"(\d+)/(\d+)\s*(oz|cl|ml|tsp|tblsp|tbsp)(?!\w)"
+    # Обрабатываем простые дроби "1/2 oz", "1/2 cup"
+    simple_frac_pattern = rf"(\d+)/(\d+)\s*(oz|cl|ml|cup|tsp|tblsp|tbsp)(?!\w)"
 
     def replace_simple_fraction(m):
         num = int(m.group(1))
